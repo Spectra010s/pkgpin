@@ -1,0 +1,44 @@
+{
+  "name": "pkgpin",
+  "version": "1.0.0",
+  "description": "Pin, update, and configure newer versions of your dependencies in your workspace package.json.",
+  "type": "module",
+  "bin": {
+    "pkgpin": "./bin/cli.mjs"
+  },
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node bin/cli.mjs --help"
+  },
+  "keywords": [
+    "dependencies",
+    "pin",
+    "bump",
+    "upgrade",
+    "versions",
+    "monorepo",
+    "workspaces",
+    "pnpm",
+    "npm",
+    "yarn",
+    "cli"
+  ],
+  "author": {
+    "name": "Adeloye Adetayo",
+    "email": "spectra010s@gmail.com",
+    "url": "https://spectra010s.biuld.app"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
