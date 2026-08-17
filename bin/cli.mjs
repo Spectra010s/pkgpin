@@ -2,7 +2,7 @@
 
 /**
  * pkgpin — Pin, update, and configure newer versions of your dependencies in your workspace package.json.
- * Version: 0.1.0
+ * Version: 0.2.0
  */
 
 import { PkgpinRunner } from '../src/index.mjs';
@@ -20,11 +20,13 @@ Examples:
   pkgpin apps/web apps/api            # Target specific workspace folders
   pkgpin package.json --dry-run       # Dry run preview on root package.json
   pkgpin --exclude=react,react-dom    # Custom exclusions
+  pkgpin --target=react               # Update only the specified packages
   pkgpin --prefix=^                   # Update to latest with caret prefix
 
 Options:
   -d, --dry-run             Preview changes without modifying package.json files
   -e, --exclude <pkgs>      Comma-separated list of packages to skip (e.g. typescript,eslint)
+  -t, --target <pkgs>       Only update these packages (e.g. react,react-dom)
   -p, --prefix <prefix>     Set version prefix: "" (pinned/exact, default), "^", "~"
       --preserve-prefix     Keep whatever prefix (^ or ~) each dependency currently has
   -c, --concurrency <n>     Parallel requests limit (default: 8)
@@ -42,7 +44,7 @@ async function main() {
   }
 
   if (argv.includes('-v') || argv.includes('--version')) {
-    console.log('pkgpin v0.1.0');
+    console.log('pkgpin v0.2.0');
     process.exit(0);
   }
 
@@ -65,6 +67,22 @@ async function main() {
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
         const custom = parseExcludes(argv[i + 1]);
         excludeList = [...new Set([...excludeList, ...custom])];
+        i++;
+      }
+    }
+  }
+
+  // Parse --target or -t: only update these packages (empty = all)
+  let targetList = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith('--target=')) {
+      const custom = parseExcludes(arg.slice(9));
+      targetList = [...new Set([...targetList, ...custom])];
+    } else if (arg === '-t' || arg === '--target') {
+      if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
+        const custom = parseExcludes(argv[i + 1]);
+        targetList = [...new Set([...targetList, ...custom])];
         i++;
       }
     }
@@ -103,7 +121,7 @@ async function main() {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('-')) {
-      if (arg === '-e' || arg === '--exclude' || arg === '-p' || arg === '--prefix' || arg === '-c' || arg === '--concurrency') {
+      if (arg === '-e' || arg === '--exclude' || arg === '-t' || arg === '--target' || arg === '-p' || arg === '--prefix' || arg === '-c' || arg === '--concurrency') {
         i++; // skip next arg as it was a value
       }
       continue;
@@ -114,6 +132,7 @@ async function main() {
   const runner = new PkgpinRunner({
     dryRun: isDryRun,
     exclude: excludeList,
+    target: targetList,
     prefix,
     preservePrefix,
     concurrency,

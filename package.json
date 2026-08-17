@@ -1,6 +1,6 @@
 {
   "name": "pkgpin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pin, update, and configure newer versions of your dependencies in your workspace package.json.",
   "type": "module",
   "bin": {

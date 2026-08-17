@@ -39,6 +39,9 @@ export class PkgpinRunner {
     this.customExclusions = new Set(
       (options.exclude || []).map((p) => p.trim().toLowerCase()).filter(Boolean)
     );
+    this.targets = new Set(
+      (options.target || []).map((p) => p.trim().toLowerCase()).filter(Boolean)
+    );
     this.versionCache = new Map();
   }
 
@@ -48,6 +51,10 @@ export class PkgpinRunner {
   shouldSkip(pkgName, currentVersion) {
     if (this.customExclusions.has(pkgName.toLowerCase())) {
       return { skip: true, reason: 'excluded' };
+    }
+
+    if (this.targets.size > 0 && !this.targets.has(pkgName.toLowerCase())) {
+      return { skip: true, reason: 'not targeted' };
     }
 
     if (typeof currentVersion !== 'string') {
@@ -300,6 +307,7 @@ export class PkgpinRunner {
       console.log('   \x1b[33m[DRY RUN: no files will be modified]\x1b[0m');
     }
     console.log(`   \x1b[90mExcluded:\x1b[0m ${[...this.customExclusions].join(', ') || 'none'}`);
+    console.log(`   \x1b[90mTarget:\x1b[0m ${this.targets.size > 0 ? [...this.targets].join(', ') : 'all packages'}`);
     console.log(`   \x1b[90mPrefix:\x1b[0m ${this.preservePrefix ? 'preserve existing' : this.prefix === '' ? 'exact (pinned)' : `"${this.prefix}"`}`);
     console.log(`   \x1b[90mTargets (${targetFiles.length}):\x1b[0m`);
     for (const file of targetFiles) {

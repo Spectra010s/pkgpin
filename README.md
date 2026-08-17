@@ -28,6 +28,7 @@ npx pkgpin
 - **Pin Exact Versions:** Strips `^` and `~` to prevent phantom CI breakage from unexpected minor/patch releases.
 - **Fast HTTP Lookups:** Direct parallel HTTP requests to the npm registry with global in-memory caching.
 - **Skip Packages:** Exclude any packages with `--exclude` (plus local monorepo protocols like `workspace:*`, `file:`, `link:` are always skipped).
+- **Targeted Updates:** Update only the packages you want with `--target`.
 - **Auto Discovery:** Seamlessly detects all workspace `package.json` files or lets you target specific paths.
 - **Dry Run Mode:** Preview updates before writing a single byte to disk.
 
@@ -52,7 +53,12 @@ npx pkgpin --exclude "react react-dom"
 # or the short form:
 npx pkgpin -e react,react-dom
 
-# 5. Keep caret (^) or tilde (~) prefixes if desired
+# 5. Update only specific packages
+npx pkgpin --target=react,react-dom
+# or the short form:
+npx pkgpin -t react react-dom
+
+# 6. Keep caret (^) or tilde (~) prefixes if desired
 npx pkgpin --preserve-prefix
 # or force caret:
 npx pkgpin --prefix=^
@@ -66,6 +72,7 @@ npx pkgpin --prefix=^
 |---|---|---|
 | `-d, --dry-run` | Preview changes without modifying files | `false` |
 | `-e, --exclude <list>` | Packages to skip; accepts comma-separated (`react,react-dom`), space-separated, or `=` form (`--exclude=react,react-dom`) | none |
+| `-t, --target <list>` | Only update these packages; accepts the same forms as `--exclude` | all packages |
 | `-p, --prefix <str>` | Version prefix to use (e.g. `""`, `"^"`, `"~"`) | `""` (pinned exact) |
 | `--preserve-prefix` | Keep whatever prefix each dependency currently has | `false` |
 | `-c, --concurrency <n>` | Max parallel registry requests | `8` |
