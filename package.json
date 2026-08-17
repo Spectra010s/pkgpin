@@ -4,7 +4,7 @@
   "description": "Pin, update, and configure newer versions of your dependencies in your workspace package.json.",
   "type": "module",
   "bin": {
-    "pkgpin": "./bin/cli.mjs"
+    "pkgpin": "bin/cli.mjs"
   },
   "main": "./src/index.mjs",
   "exports": {
