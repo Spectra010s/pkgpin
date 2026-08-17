@@ -47,6 +47,10 @@ npx pkgpin package.json --dry-run
 
 # 4. Skip specific packages
 npx pkgpin --exclude=react,react-dom
+# space-separated is also accepted:
+npx pkgpin --exclude "react react-dom"
+# or the short form:
+npx pkgpin -e react,react-dom
 
 # 5. Keep caret (^) or tilde (~) prefixes if desired
 npx pkgpin --preserve-prefix
@@ -61,7 +65,7 @@ npx pkgpin --prefix=^
 | Flag | Description | Default |
 |---|---|---|
 | `-d, --dry-run` | Preview changes without modifying files | `false` |
-| `-e, --exclude <list>` | Comma-separated list of packages to skip | none |
+| `-e, --exclude <list>` | Packages to skip; accepts comma-separated (`react,react-dom`), space-separated, or `=` form (`--exclude=react,react-dom`) | none |
 | `-p, --prefix <str>` | Version prefix to use (e.g. `""`, `"^"`, `"~"`) | `""` (pinned exact) |
 | `--preserve-prefix` | Keep whatever prefix each dependency currently has | `false` |
 | `-c, --concurrency <n>` | Max parallel registry requests | `8` |
