@@ -2,7 +2,7 @@
 
 /**
  * pkgpin — Pin, update, and configure newer versions of your dependencies in your workspace package.json.
- * Version: 1.0.0
+ * Version: 0.1.0
  */
 
 import { PkgpinRunner } from '../src/index.mjs';
@@ -42,7 +42,7 @@ async function main() {
   }
 
   if (argv.includes('-v') || argv.includes('--version')) {
-    console.log('pkgpin v1.0.0');
+    console.log('pkgpin v0.1.0');
     process.exit(0);
   }
 
