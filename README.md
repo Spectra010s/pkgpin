@@ -90,7 +90,7 @@ await runner.run(['apps/web', 'apps/api']);
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
 
 ---
 
