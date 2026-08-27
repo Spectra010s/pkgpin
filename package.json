@@ -17,7 +17,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node bin/cli.mjs --help"
+    "test": "node --test"
   },
   "keywords": [
     "dependencies",

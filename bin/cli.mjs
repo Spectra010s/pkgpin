@@ -48,22 +48,23 @@ async function main() {
     process.exit(0);
   }
 
-  const isDryRun = argv.includes('-d') || argv.includes('--dry-run');
-  const preservePrefix = argv.includes('--preserve-prefix');
-
-  // Default exclusions (none by default)
-  let excludeList = [];
+  const hasDryRun = argv.includes('-d') || argv.includes('--dry-run');
+  const hasPreservePrefix = argv.includes('--preserve-prefix');
 
   // Parse --exclude or -e
   // Split on commas and/or whitespace: PowerShell shims join comma lists
   // into a single space-separated string, so handle both forms.
+  let hasExclude = false;
+  let excludeList = [];
   const parseExcludes = (raw) => raw.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('--exclude=')) {
+      hasExclude = true;
       const custom = parseExcludes(arg.slice(10));
       excludeList = [...new Set([...excludeList, ...custom])];
     } else if (arg === '-e' || arg === '--exclude') {
+      hasExclude = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
         const custom = parseExcludes(argv[i + 1]);
         excludeList = [...new Set([...excludeList, ...custom])];
@@ -73,13 +74,16 @@ async function main() {
   }
 
   // Parse --target or -t: only update these packages (empty = all)
+  let hasTarget = false;
   let targetList = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('--target=')) {
+      hasTarget = true;
       const custom = parseExcludes(arg.slice(9));
       targetList = [...new Set([...targetList, ...custom])];
     } else if (arg === '-t' || arg === '--target') {
+      hasTarget = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
         const custom = parseExcludes(argv[i + 1]);
         targetList = [...new Set([...targetList, ...custom])];
@@ -89,26 +93,34 @@ async function main() {
   }
 
   // Parse custom prefix
-  let prefix = ''; // default pinned exact
+  let hasPrefix = false;
+  let prefix;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('--prefix=')) {
+      hasPrefix = true;
       prefix = arg.slice(9);
     } else if (arg === '-p' || arg === '--prefix') {
+      hasPrefix = true;
       if (argv[i + 1] !== undefined && !argv[i + 1].startsWith('-')) {
         prefix = argv[i + 1];
         i++;
+      } else {
+        prefix = '';
       }
     }
   }
 
   // Parse concurrency
-  let concurrency = 8;
+  let hasConcurrency = false;
+  let concurrency;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('--concurrency=')) {
+      hasConcurrency = true;
       concurrency = parseInt(arg.slice(14), 10) || 8;
     } else if (arg === '-c' || arg === '--concurrency') {
+      hasConcurrency = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
         concurrency = parseInt(argv[i + 1], 10) || 8;
         i++;
@@ -129,16 +141,17 @@ async function main() {
     pathArgs.push(arg);
   }
 
-  const runner = new PkgpinRunner({
-    dryRun: isDryRun,
-    exclude: excludeList,
-    target: targetList,
-    prefix,
-    preservePrefix,
-    concurrency,
-  });
+  const runnerOptions = {};
+  if (hasDryRun) runnerOptions.dryRun = true;
+  if (hasPreservePrefix) runnerOptions.preservePrefix = true;
+  if (hasExclude) runnerOptions.exclude = excludeList;
+  if (hasTarget) runnerOptions.target = targetList;
+  if (hasPrefix) runnerOptions.prefix = prefix;
+  if (hasConcurrency) runnerOptions.concurrency = concurrency;
 
-  await runner.run(pathArgs);
+  const runner = new PkgpinRunner(runnerOptions);
+
+  await runner.run(pathArgs.length > 0 ? pathArgs : undefined);
 }
 
 main().catch((err) => {
