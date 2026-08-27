@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { loadConfig, normalizeConfig } from './config.mjs';
+
+export { loadConfig, normalizeConfig };
 
 // Protocols / prefixes to ignore
 const IGNORED_VERSION_PREFIXES = [
@@ -31,17 +34,25 @@ const IGNORED_DIRS = new Set([
 export class PkgpinRunner {
   constructor(options = {}) {
     this.cwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
-    this.isDryRun = Boolean(options.dryRun);
-    this.prefix = options.prefix ?? ''; // default: exact pinned (no ^ or ~)
-    this.preservePrefix = Boolean(options.preservePrefix);
-    this.concurrency = options.concurrency || 8;
-    this.timeoutMs = options.timeoutMs || 6000;
+    const fileConfig = options.skipConfig ? {} : loadConfig(this.cwd).config;
+
+    this.isDryRun = options.dryRun !== undefined ? Boolean(options.dryRun) : Boolean(fileConfig.dryRun);
+    this.prefix = options.prefix !== undefined ? options.prefix : (fileConfig.prefix ?? ''); // default: exact pinned (no ^ or ~)
+    this.preservePrefix = options.preservePrefix !== undefined ? Boolean(options.preservePrefix) : Boolean(fileConfig.preservePrefix);
+    this.concurrency = options.concurrency || fileConfig.concurrency || 8;
+    this.timeoutMs = options.timeoutMs || fileConfig.timeoutMs || 6000;
+
+    const excludes = options.exclude !== undefined ? options.exclude : (fileConfig.exclude || []);
     this.customExclusions = new Set(
-      (options.exclude || []).map((p) => p.trim().toLowerCase()).filter(Boolean)
+      (Array.isArray(excludes) ? excludes : [excludes]).map((p) => String(p).trim().toLowerCase()).filter(Boolean)
     );
+
+    const targets = options.target !== undefined ? options.target : (fileConfig.target || []);
     this.targets = new Set(
-      (options.target || []).map((p) => p.trim().toLowerCase()).filter(Boolean)
+      (Array.isArray(targets) ? targets : [targets]).map((p) => String(p).trim().toLowerCase()).filter(Boolean)
     );
+
+    this.defaultPaths = options.paths !== undefined ? options.paths : (fileConfig.paths || []);
     this.versionCache = new Map();
   }
 
@@ -301,7 +312,8 @@ export class PkgpinRunner {
    * Run update on all targets
    */
   async run(inputPaths = []) {
-    const targetFiles = this.resolveTargetFiles(inputPaths);
+    const pathsToUse = inputPaths && inputPaths.length > 0 ? inputPaths : this.defaultPaths;
+    const targetFiles = this.resolveTargetFiles(pathsToUse);
 
     if (this.isDryRun) {
       console.log('   \x1b[33m[DRY RUN: no files will be modified]\x1b[0m');
