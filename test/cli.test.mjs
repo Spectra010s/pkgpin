@@ -62,4 +62,26 @@ describe('CLI Integration with Config (Issue #1)', () => {
     assert.match(output, /Excluded:.*express/);
     assert.match(output, /Prefix:.*~/);
   });
+
+  it('should read config from pkgpin.config.js when running CLI', () => {
+    const pkgJson = {
+      name: 'test-app',
+      type: 'module',
+      dependencies: {
+        koa: '2.0.0',
+      },
+    };
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify(pkgJson, null, 2), 'utf8');
+
+    const configJs = `export default { prefix: '~', exclude: ['koa'], dryRun: true };`;
+    fs.writeFileSync(path.join(tmpDir, 'pkgpin.config.js'), configJs, 'utf8');
+
+    const output = execFileSync('node', [CLI_PATH], {
+      cwd: tmpDir,
+      encoding: 'utf8',
+    });
+
+    assert.match(output, /Excluded:.*koa/);
+    assert.match(output, /Prefix:.*~/);
+  });
 });

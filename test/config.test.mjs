@@ -16,13 +16,13 @@ describe('Config Loader (Issue #1)', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('should return empty config and null filepath when no config exists', () => {
-    const { config, filepath } = loadConfig(tmpDir);
+  it('should return empty config and null filepath when no config exists', async () => {
+    const { config, filepath } = await loadConfig(tmpDir);
     assert.deepEqual(config, {});
     assert.equal(filepath, null);
   });
 
-  it('should load config from package.json "pkgpin" field', () => {
+  it('should load config from package.json "pkgpin" field', async () => {
     const pkgJson = {
       name: 'test-pkg',
       pkgpin: {
@@ -35,7 +35,7 @@ describe('Config Loader (Issue #1)', () => {
     };
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify(pkgJson), 'utf8');
 
-    const { config, filepath } = loadConfig(tmpDir);
+    const { config, filepath } = await loadConfig(tmpDir);
     assert.equal(filepath, path.join(tmpDir, 'package.json'));
     assert.equal(config.prefix, '^');
     assert.deepEqual(config.exclude, ['typescript', 'eslint']);
@@ -44,7 +44,7 @@ describe('Config Loader (Issue #1)', () => {
     assert.deepEqual(config.paths, ['apps/web']);
   });
 
-  it('should load config from .pkgpinrc (JSON)', () => {
+  it('should load config from .pkgpinrc (JSON)', async () => {
     const rcConfig = {
       prefix: '~',
       exclude: 'react, react-dom',
@@ -53,7 +53,7 @@ describe('Config Loader (Issue #1)', () => {
     };
     fs.writeFileSync(path.join(tmpDir, '.pkgpinrc'), JSON.stringify(rcConfig), 'utf8');
 
-    const { config, filepath } = loadConfig(tmpDir);
+    const { config, filepath } = await loadConfig(tmpDir);
     assert.equal(filepath, path.join(tmpDir, '.pkgpinrc'));
     assert.equal(config.prefix, '~');
     assert.deepEqual(config.exclude, ['react', 'react-dom']);
@@ -61,33 +61,33 @@ describe('Config Loader (Issue #1)', () => {
     assert.equal(config.dryRun, true);
   });
 
-  it('should load config from .pkgpinrc.json', () => {
+  it('should load config from .pkgpinrc.json', async () => {
     const rcJsonConfig = {
       prefix: '',
       exclude: ['lodash'],
     };
     fs.writeFileSync(path.join(tmpDir, '.pkgpinrc.json'), JSON.stringify(rcJsonConfig), 'utf8');
 
-    const { config, filepath } = loadConfig(tmpDir);
+    const { config, filepath } = await loadConfig(tmpDir);
     assert.equal(filepath, path.join(tmpDir, '.pkgpinrc.json'));
     assert.equal(config.prefix, '');
     assert.deepEqual(config.exclude, ['lodash']);
   });
 
-  it('should load config from pkgpin.config.json', () => {
+  it('should load config from pkgpin.config.json', async () => {
     const pkgpinConfig = {
       prefix: '^',
       concurrency: 4,
     };
     fs.writeFileSync(path.join(tmpDir, 'pkgpin.config.json'), JSON.stringify(pkgpinConfig), 'utf8');
 
-    const { config, filepath } = loadConfig(tmpDir);
+    const { config, filepath } = await loadConfig(tmpDir);
     assert.equal(filepath, path.join(tmpDir, 'pkgpin.config.json'));
     assert.equal(config.prefix, '^');
     assert.equal(config.concurrency, 4);
   });
 
-  it('should respect discovery precedence: pkgpin.config.json > .pkgpinrc.json > .pkgpinrc > package.json', () => {
+  it('should respect discovery precedence: pkgpin.config.json > .pkgpinrc.json > .pkgpinrc > package.json', async () => {
     // Write all 4 files
     fs.writeFileSync(
       path.join(tmpDir, 'package.json'),
@@ -111,34 +111,34 @@ describe('Config Loader (Issue #1)', () => {
     );
 
     // pkgpin.config.json takes precedence
-    let res = loadConfig(tmpDir);
+    let res = await loadConfig(tmpDir);
     assert.equal(res.config.prefix, 'configjson');
     assert.equal(res.filepath, path.join(tmpDir, 'pkgpin.config.json'));
 
     // Remove pkgpin.config.json -> .pkgpinrc.json
     fs.unlinkSync(path.join(tmpDir, 'pkgpin.config.json'));
-    res = loadConfig(tmpDir);
+    res = await loadConfig(tmpDir);
     assert.equal(res.config.prefix, 'rcjson');
     assert.equal(res.filepath, path.join(tmpDir, '.pkgpinrc.json'));
 
     // Remove .pkgpinrc.json -> .pkgpinrc
     fs.unlinkSync(path.join(tmpDir, '.pkgpinrc.json'));
-    res = loadConfig(tmpDir);
+    res = await loadConfig(tmpDir);
     assert.equal(res.config.prefix, 'rc');
     assert.equal(res.filepath, path.join(tmpDir, '.pkgpinrc'));
 
     // Remove .pkgpinrc -> package.json
     fs.unlinkSync(path.join(tmpDir, '.pkgpinrc'));
-    res = loadConfig(tmpDir);
+    res = await loadConfig(tmpDir);
     assert.equal(res.config.prefix, 'pkgjson');
     assert.equal(res.filepath, path.join(tmpDir, 'package.json'));
   });
 
-  it('should throw clear error on malformed JSON config', () => {
+  it('should throw clear error on malformed JSON config', async () => {
     fs.writeFileSync(path.join(tmpDir, '.pkgpinrc.json'), '{ malformed json: true }', 'utf8');
 
-    assert.throws(
-      () => loadConfig(tmpDir),
+    await assert.rejects(
+      async () => loadConfig(tmpDir),
       /Failed to parse configuration file/
     );
   });
@@ -211,5 +211,90 @@ describe('Config Loader (Issue #1)', () => {
     assert.equal(normalized.concurrency, 10);
     assert.equal(normalized.dryRun, true);
     assert.equal(normalized.timeoutMs, 5000);
+  });
+});
+
+describe('JavaScript & ESM Config Loader (Issue #2)', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pkgpin-js-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('should load config from pkgpin.config.js (ESM export default)', async () => {
+    const content = `export default { prefix: '^', exclude: ['typescript'], concurrency: 10 };`;
+    fs.writeFileSync(path.join(tmpDir, 'pkgpin.config.js'), content, 'utf8');
+
+    const { config, filepath } = await loadConfig(tmpDir);
+    assert.equal(filepath, path.join(tmpDir, 'pkgpin.config.js'));
+    assert.equal(config.prefix, '^');
+    assert.deepEqual(config.exclude, ['typescript']);
+    assert.equal(config.concurrency, 10);
+  });
+
+  it('should load config from pkgpin.config.mjs with functional export', async () => {
+    const content = `export default async () => ({ prefix: '~', target: ['react', 'react-dom'], dryRun: true });`;
+    fs.writeFileSync(path.join(tmpDir, 'pkgpin.config.mjs'), content, 'utf8');
+
+    const { config, filepath } = await loadConfig(tmpDir);
+    assert.equal(filepath, path.join(tmpDir, 'pkgpin.config.mjs'));
+    assert.equal(config.prefix, '~');
+    assert.deepEqual(config.target, ['react', 'react-dom']);
+    assert.equal(config.dryRun, true);
+  });
+
+  it('should load config from pkgpin.config.cjs (CommonJS)', async () => {
+    const content = `module.exports = { prefix: '^', preservePrefix: true, concurrency: 6 };`;
+    fs.writeFileSync(path.join(tmpDir, 'pkgpin.config.cjs'), content, 'utf8');
+
+    const { config, filepath } = await loadConfig(tmpDir);
+    assert.equal(filepath, path.join(tmpDir, 'pkgpin.config.cjs'));
+    assert.equal(config.prefix, '^');
+    assert.equal(config.preservePrefix, true);
+    assert.equal(config.concurrency, 6);
+  });
+
+  it('should load config from .pkgpinrc.js and .pkgpinrc.mjs', async () => {
+    const content = `export default { prefix: '^', exclude: ['eslint'] };`;
+    fs.writeFileSync(path.join(tmpDir, '.pkgpinrc.js'), content, 'utf8');
+
+    const { config, filepath } = await loadConfig(tmpDir);
+    assert.equal(filepath, path.join(tmpDir, '.pkgpinrc.js'));
+    assert.equal(config.prefix, '^');
+    assert.deepEqual(config.exclude, ['eslint']);
+  });
+
+  it('should prioritize JS config over JSON config', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'pkgpin.config.json'),
+      JSON.stringify({ prefix: 'json-prefix' }),
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'pkgpin.config.js'),
+      `export default { prefix: 'js-prefix' };`,
+      'utf8'
+    );
+
+    const { config, filepath } = await loadConfig(tmpDir);
+    assert.equal(filepath, path.join(tmpDir, 'pkgpin.config.js'));
+    assert.equal(config.prefix, 'js-prefix');
+  });
+
+  it('should throw clear error when JS config file throws runtime error', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'pkgpin.config.js'),
+      `throw new Error('intentional error');`,
+      'utf8'
+    );
+
+    await assert.rejects(
+      async () => loadConfig(tmpDir),
+      /Failed to load configuration file.*intentional error/
+    );
   });
 });

@@ -5,7 +5,7 @@
  * Version: 0.2.0
  */
 
-import { PkgpinRunner } from '../src/index.mjs';
+import { PkgpinRunner, loadConfig } from '../src/index.mjs';
 
 function printHelp() {
   console.log(`
@@ -141,7 +141,11 @@ async function main() {
     pathArgs.push(arg);
   }
 
-  const runnerOptions = {};
+  const { config: fileConfig } = await loadConfig(process.cwd());
+
+  const runnerOptions = {
+    _preloadedConfig: fileConfig,
+  };
   if (hasDryRun) runnerOptions.dryRun = true;
   if (hasPreservePrefix) runnerOptions.preservePrefix = true;
   if (hasExclude) runnerOptions.exclude = excludeList;
