@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-import { loadConfig, normalizeConfig } from './config.mjs';
+import { loadConfig, loadConfigSync, normalizeConfig } from './config/index.mjs';
 
-export { loadConfig, normalizeConfig };
+export { loadConfig, loadConfigSync, normalizeConfig };
 
 // Protocols / prefixes to ignore
 const IGNORED_VERSION_PREFIXES = [
@@ -34,7 +34,12 @@ const IGNORED_DIRS = new Set([
 export class PkgpinRunner {
   constructor(options = {}) {
     this.cwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
-    const fileConfig = options.skipConfig ? {} : loadConfig(this.cwd).config;
+    this._skipConfig = Boolean(options.skipConfig);
+    this._userOptions = options;
+
+    const fileConfig = this._skipConfig
+      ? {}
+      : (options._preloadedConfig || loadConfigSync(this.cwd).config);
 
     this.isDryRun = options.dryRun !== undefined ? Boolean(options.dryRun) : Boolean(fileConfig.dryRun);
     this.prefix = options.prefix !== undefined ? options.prefix : (fileConfig.prefix ?? ''); // default: exact pinned (no ^ or ~)
@@ -308,10 +313,41 @@ export class PkgpinRunner {
     return { filePath, relativePath, updated: totalUpdated, updates };
   }
 
-  /**
-   * Run update on all targets
-   */
   async run(inputPaths = []) {
+    if (!this._skipConfig && !this._userOptions._preloadedConfig) {
+      const { config: asyncConfig } = await loadConfig(this.cwd);
+      if (asyncConfig) {
+        if (this._userOptions.prefix === undefined && asyncConfig.prefix !== undefined) {
+          this.prefix = asyncConfig.prefix;
+        }
+        if (this._userOptions.preservePrefix === undefined && asyncConfig.preservePrefix !== undefined) {
+          this.preservePrefix = asyncConfig.preservePrefix;
+        }
+        if (this._userOptions.concurrency === undefined && asyncConfig.concurrency !== undefined) {
+          this.concurrency = asyncConfig.concurrency;
+        }
+        if (this._userOptions.timeoutMs === undefined && asyncConfig.timeoutMs !== undefined) {
+          this.timeoutMs = asyncConfig.timeoutMs;
+        }
+        if (this._userOptions.dryRun === undefined && asyncConfig.dryRun !== undefined) {
+          this.isDryRun = asyncConfig.dryRun;
+        }
+        if (this._userOptions.exclude === undefined && asyncConfig.exclude !== undefined) {
+          this.customExclusions = new Set(
+            asyncConfig.exclude.map((p) => String(p).trim().toLowerCase()).filter(Boolean)
+          );
+        }
+        if (this._userOptions.target === undefined && asyncConfig.target !== undefined) {
+          this.targets = new Set(
+            asyncConfig.target.map((p) => String(p).trim().toLowerCase()).filter(Boolean)
+          );
+        }
+        if (this._userOptions.paths === undefined && asyncConfig.paths !== undefined) {
+          this.defaultPaths = asyncConfig.paths;
+        }
+      }
+    }
+
     const pathsToUse = inputPaths && inputPaths.length > 0 ? inputPaths : this.defaultPaths;
     const targetFiles = this.resolveTargetFiles(pathsToUse);
 
