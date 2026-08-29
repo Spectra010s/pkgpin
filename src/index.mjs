@@ -452,40 +452,71 @@ export class PkgpinRunner {
   }
 
   async run(inputPaths = []) {
+    // When no config was preloaded (i.e. programmatic usage, not CLI), run the async loader
+    // which discovers JS/ESM configs that loadConfigSync cannot. If a JS config is found,
+    // we must fully reset state to defaults before applying it — otherwise fields from a
+    // lower-precedence JSON config (loaded synchronously in the constructor) would leak through
+    // for any property the JS config doesn't explicitly set.
     if (!this._skipConfig && !this._userOptions._preloadedConfig) {
       const { config: asyncConfig } = await loadConfig(this.cwd);
-      if (asyncConfig) {
-        if (this._userOptions.prefix === undefined && asyncConfig.prefix !== undefined) {
-          this.prefix = asyncConfig.prefix;
-        }
-        if (this._userOptions.preservePrefix === undefined && asyncConfig.preservePrefix !== undefined) {
-          this.preservePrefix = asyncConfig.preservePrefix;
-        }
-        if (this._userOptions.concurrency === undefined && asyncConfig.concurrency !== undefined) {
-          this.concurrency = asyncConfig.concurrency;
-        }
-        if (this._userOptions.timeoutMs === undefined && asyncConfig.timeoutMs !== undefined) {
-          this.timeoutMs = asyncConfig.timeoutMs;
-        }
-        if (this._userOptions.dryRun === undefined && asyncConfig.dryRun !== undefined) {
-          this.isDryRun = asyncConfig.dryRun;
-        }
-        if (this._userOptions.exclude === undefined && asyncConfig.exclude !== undefined) {
+      if (asyncConfig && Object.keys(asyncConfig).length > 0) {
+        // Reset all config-derived state to built-in defaults before applying the winning config.
+        // This ensures the single winning config file is the only source of file-based options.
+        this.isDryRun = false;
+        this.prefix = '';
+        this.preservePrefix = false;
+        this.concurrency = 8;
+        this.timeoutMs = 6000;
+        this.customExclusions = new Set();
+        this.targets = new Set();
+        this.defaultPaths = [];
+        this.workspaces = {};
+
+        // Apply each field from the winning async config
+        if (asyncConfig.prefix !== undefined) this.prefix = asyncConfig.prefix;
+        if (asyncConfig.preservePrefix !== undefined) this.preservePrefix = asyncConfig.preservePrefix;
+        if (asyncConfig.concurrency !== undefined) this.concurrency = asyncConfig.concurrency;
+        if (asyncConfig.timeoutMs !== undefined) this.timeoutMs = asyncConfig.timeoutMs;
+        if (asyncConfig.dryRun !== undefined) this.isDryRun = asyncConfig.dryRun;
+        if (asyncConfig.exclude !== undefined) {
           this.customExclusions = new Set(
             asyncConfig.exclude.map((p) => String(p).trim().toLowerCase()).filter(Boolean)
           );
         }
-        if (this._userOptions.target === undefined && asyncConfig.target !== undefined) {
+        if (asyncConfig.target !== undefined) {
           this.targets = new Set(
             asyncConfig.target.map((p) => String(p).trim().toLowerCase()).filter(Boolean)
           );
         }
-        if (this._userOptions.paths === undefined && asyncConfig.paths !== undefined) {
-          this.defaultPaths = asyncConfig.paths;
+        if (asyncConfig.paths !== undefined) this.defaultPaths = asyncConfig.paths;
+        if (asyncConfig.workspaces !== undefined) this.workspaces = asyncConfig.workspaces;
+
+        // Re-apply user-provided options so they still take highest precedence
+        if (this._userOptions.dryRun !== undefined) this.isDryRun = Boolean(this._userOptions.dryRun);
+        if (this._userOptions.prefix !== undefined) this.prefix = this._userOptions.prefix;
+        if (this._userOptions.preservePrefix !== undefined) this.preservePrefix = Boolean(this._userOptions.preservePrefix);
+        if (this._userOptions.concurrency !== undefined) {
+          const parsed = parsePositiveInteger(this._userOptions.concurrency);
+          if (parsed !== null) this.concurrency = parsed;
         }
-        if (this._userOptions.workspaces === undefined && asyncConfig.workspaces !== undefined) {
-          this.workspaces = asyncConfig.workspaces;
+        if (this._userOptions.timeoutMs !== undefined) {
+          const parsed = parsePositiveInteger(this._userOptions.timeoutMs);
+          if (parsed !== null) this.timeoutMs = parsed;
         }
+        if (this._userOptions.exclude !== undefined) {
+          const excludes = this._userOptions.exclude;
+          this.customExclusions = new Set(
+            (Array.isArray(excludes) ? excludes : [excludes]).map((p) => String(p).trim().toLowerCase()).filter(Boolean)
+          );
+        }
+        if (this._userOptions.target !== undefined) {
+          const targets = this._userOptions.target;
+          this.targets = new Set(
+            (Array.isArray(targets) ? targets : [targets]).map((p) => String(p).trim().toLowerCase()).filter(Boolean)
+          );
+        }
+        if (this._userOptions.paths !== undefined) this.defaultPaths = this._userOptions.paths;
+        if (this._userOptions.workspaces !== undefined) this.workspaces = this._userOptions.workspaces;
       }
     }
 
