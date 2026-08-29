@@ -13,6 +13,7 @@
   "files": [
     "bin",
     "src",
+    "schema.json",
     "README.md",
     "LICENSE"
   ],
