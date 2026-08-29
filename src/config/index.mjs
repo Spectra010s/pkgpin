@@ -93,8 +93,14 @@ export async function loadConfigFile(filePath) {
   if (!fs.existsSync(resolved)) {
     throw new Error(`Configuration file not found: "${resolved}"`);
   }
-  if (!fs.statSync(resolved).isFile()) {
-    throw new Error(`Configuration path is not a file: "${resolved}"`);
+
+  // If a directory was provided, search for standard config files within it
+  if (fs.statSync(resolved).isDirectory()) {
+    const result = await loadConfig(resolved);
+    if (!result.filepath) {
+      throw new Error(`No configuration file found in directory "${resolved}"`);
+    }
+    return result;
   }
 
   const ext = path.extname(resolved).toLowerCase();

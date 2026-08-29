@@ -54,13 +54,28 @@ describe('--config / -C CLI Flag', () => {
     );
   });
 
-  it('should throw when explicit config path is a directory', async () => {
-    const dirPath = path.join(tmpDir, 'subdir');
-    fs.mkdirSync(dirPath);
+  it('should discover and load config when a directory is specified', async () => {
+    const customDir = path.join(tmpDir, 'custom-config-dir');
+    fs.mkdirSync(customDir);
+    fs.writeFileSync(
+      path.join(customDir, 'pkgpin.config.json'),
+      JSON.stringify({ prefix: '~', concurrency: 5 }),
+      'utf8'
+    );
+
+    const { config, filepath } = await loadConfigFile(customDir);
+    assert.equal(filepath, path.join(customDir, 'pkgpin.config.json'));
+    assert.equal(config.prefix, '~');
+    assert.equal(config.concurrency, 5);
+  });
+
+  it('should throw when specified directory contains no config files', async () => {
+    const emptyDir = path.join(tmpDir, 'empty-dir');
+    fs.mkdirSync(emptyDir);
 
     await assert.rejects(
-      () => loadConfigFile(dirPath),
-      /Configuration path is not a file/
+      () => loadConfigFile(emptyDir),
+      /No configuration file found in directory/
     );
   });
 
