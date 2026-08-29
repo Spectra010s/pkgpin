@@ -5,7 +5,7 @@
  * Version: 0.2.0
  */
 
-import { PkgpinRunner, loadConfig, parsePositiveInteger } from '../src/index.mjs';
+import { PkgpinRunner, loadConfig, loadConfigFile, parsePositiveInteger } from '../src/index.mjs';
 
 function printHelp() {
   console.log(`
@@ -24,6 +24,7 @@ Examples:
   pkgpin --prefix=^                   # Update to latest with caret prefix
 
 Options:
+  -C, --config <path>       Use a specific configuration file instead of auto-discovery
   -d, --dry-run             Preview changes without modifying package.json files
   -e, --exclude <pkgs>      Comma-separated list of packages to skip (e.g. typescript,eslint)
   -t, --target <pkgs>       Only update these packages (e.g. react,react-dom)
@@ -143,12 +144,29 @@ async function main() {
     }
   }
 
-  // Filter positional path arguments
+  // Parse -C / --config: explicit path to a configuration file, bypassing auto-discovery
+  let configPath = null;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith('--config=')) {
+      configPath = arg.slice(9);
+    } else if (arg === '-C' || arg === '--config') {
+      if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
+        configPath = argv[i + 1];
+        i++;
+      } else {
+        console.error('\x1b[31mError: Option --config requires a file path argument.\x1b[0m');
+        process.exit(1);
+      }
+    }
+  }
+
+  // Filter positional path arguments (skip flags and their values)
   const pathArgs = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('-')) {
-      if (arg === '-e' || arg === '--exclude' || arg === '-t' || arg === '--target' || arg === '-p' || arg === '--prefix' || arg === '-c' || arg === '--concurrency') {
+      if (arg === '-e' || arg === '--exclude' || arg === '-t' || arg === '--target' || arg === '-p' || arg === '--prefix' || arg === '-c' || arg === '--concurrency' || arg === '-C' || arg === '--config') {
         i++; // skip next arg as it was a value
       }
       continue;
@@ -156,7 +174,10 @@ async function main() {
     pathArgs.push(arg);
   }
 
-  const { config: fileConfig } = await loadConfig(process.cwd());
+  // Load config: use explicit path if provided, otherwise auto-discover
+  const { config: fileConfig } = configPath
+    ? await loadConfigFile(configPath)
+    : await loadConfig(process.cwd());
 
   const cliFlags = {};
   if (hasDryRun) cliFlags.dryRun = true;
