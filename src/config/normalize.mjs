@@ -31,6 +31,7 @@ export function normalizeList(val) {
  * - `concurrency` (number): Max parallel HTTP requests
  * - `dryRun` (boolean): Preview updates without writing to disk
  * - `timeoutMs` (number): Registry lookup request timeout in milliseconds
+ * - `workspaces` (Record<string, object>): Per-workspace override configurations
  *
  * @param {Record<string, any>} [rawConfig={}] - Raw parsed configuration object
  * @returns {Record<string, any>} Sanitized configuration object
@@ -82,6 +83,16 @@ export function normalizeConfig(rawConfig = {}) {
     const parsed = parseInt(rawConfig.timeoutMs, 10);
     if (!Number.isNaN(parsed) && parsed > 0) {
       config.timeoutMs = parsed;
+    }
+  }
+
+  // Recursively sanitize per-workspace configuration overrides (keyed by directory path, glob pattern, or package name)
+  if (rawConfig.workspaces && typeof rawConfig.workspaces === 'object' && !Array.isArray(rawConfig.workspaces)) {
+    config.workspaces = {};
+    for (const [wsKey, wsVal] of Object.entries(rawConfig.workspaces)) {
+      if (wsVal && typeof wsVal === 'object' && !Array.isArray(wsVal)) {
+        config.workspaces[wsKey] = normalizeConfig(wsVal);
+      }
     }
   }
 
