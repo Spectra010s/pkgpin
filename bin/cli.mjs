@@ -2,10 +2,20 @@
 
 /**
  * pkgpin — Pin, update, and configure newer versions of your dependencies in your workspace package.json.
- * Version: 0.2.0
+ * Version: 0.3.0
  */
 
+import fs from 'node:fs';
 import { PkgpinRunner, loadConfig, loadConfigFile, parsePositiveInteger } from '../src/index.mjs';
+
+function getCliVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 function printHelp() {
   console.log(`
@@ -45,7 +55,7 @@ async function main() {
   }
 
   if (argv.includes('-v') || argv.includes('--version')) {
-    console.log('pkgpin v0.2.0');
+    console.log(`pkgpin v${getCliVersion()}`);
     process.exit(0);
   }
 

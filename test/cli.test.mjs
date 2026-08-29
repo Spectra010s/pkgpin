@@ -132,4 +132,13 @@ describe('CLI Integration with Config & Workspaces', () => {
     assert.match(output, /apps\/web\/package\.json/);
     assert.match(output, /apps\/api\/package\.json/);
   });
+
+  it('should output the exact version from package.json when passed -v or --version', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+    const outputV = execFileSync('node', [CLI_PATH, '-v'], { encoding: 'utf8' });
+    const outputVersion = execFileSync('node', [CLI_PATH, '--version'], { encoding: 'utf8' });
+
+    assert.equal(outputV.trim(), `pkgpin v${pkg.version}`);
+    assert.equal(outputVersion.trim(), `pkgpin v${pkg.version}`);
+  });
 });
