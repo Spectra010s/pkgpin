@@ -5,7 +5,7 @@
  * Version: 0.2.0
  */
 
-import { PkgpinRunner, loadConfig } from '../src/index.mjs';
+import { PkgpinRunner, loadConfig, parsePositiveInteger } from '../src/index.mjs';
 
 function printHelp() {
   console.log(`
@@ -118,18 +118,20 @@ async function main() {
     const arg = argv[i];
     if (arg.startsWith('--concurrency=')) {
       hasConcurrency = true;
-      const parsed = parseInt(arg.slice(14), 10);
-      if (Number.isNaN(parsed) || parsed < 1) {
-        console.error(`\x1b[31mError: Invalid concurrency value "${arg.slice(14)}". Must be a positive integer.\x1b[0m`);
+      const rawVal = arg.slice(14);
+      const parsed = parsePositiveInteger(rawVal);
+      if (parsed === null) {
+        console.error(`\x1b[31mError: Invalid concurrency value "${rawVal}". Must be a positive integer.\x1b[0m`);
         process.exit(1);
       }
       concurrency = parsed;
     } else if (arg === '-c' || arg === '--concurrency') {
       hasConcurrency = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
-        const parsed = parseInt(argv[i + 1], 10);
-        if (Number.isNaN(parsed) || parsed < 1) {
-          console.error(`\x1b[31mError: Invalid concurrency value "${argv[i + 1]}". Must be a positive integer.\x1b[0m`);
+        const rawVal = argv[i + 1];
+        const parsed = parsePositiveInteger(rawVal);
+        if (parsed === null) {
+          console.error(`\x1b[31mError: Invalid concurrency value "${rawVal}". Must be a positive integer.\x1b[0m`);
           process.exit(1);
         }
         concurrency = parsed;

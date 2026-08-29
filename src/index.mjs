@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-import { loadConfig, loadConfigSync, normalizeConfig } from './config/index.mjs';
+import { loadConfig, loadConfigSync, normalizeConfig, parsePositiveInteger } from './config/index.mjs';
 
-export { loadConfig, loadConfigSync, normalizeConfig };
+export { loadConfig, loadConfigSync, normalizeConfig, parsePositiveInteger };
 
 // Protocols / prefixes to ignore
 const IGNORED_VERSION_PREFIXES = [
@@ -67,10 +67,10 @@ export class PkgpinRunner {
 
     // Concurrency limit for parallel HTTP requests.
     // Explicitly validate that provided value is a positive integer (>= 1) rather than relying on
-    // truthy OR fallbacks, preventing 0 or negative numbers from silently reverting to defaults.
+    // truthy OR fallbacks, preventing 0, floats (1.5), or trailing junk (8abc) from slipping through.
     if (options.concurrency !== undefined) {
-      const parsed = parseInt(options.concurrency, 10);
-      if (Number.isNaN(parsed) || parsed < 1) {
+      const parsed = parsePositiveInteger(options.concurrency);
+      if (parsed === null) {
         throw new Error(`Invalid concurrency value: "${options.concurrency}". Must be a positive integer.`);
       }
       this.concurrency = parsed;
@@ -80,10 +80,10 @@ export class PkgpinRunner {
 
     // Registry HTTP request timeout in milliseconds.
     // Explicitly validate positive integer (>= 1) to ensure intentional timeout settings
-    // are preserved and invalid values (like 0) produce clear feedback.
+    // are preserved and invalid values produce clear feedback.
     if (options.timeoutMs !== undefined) {
-      const parsed = parseInt(options.timeoutMs, 10);
-      if (Number.isNaN(parsed) || parsed < 1) {
+      const parsed = parsePositiveInteger(options.timeoutMs);
+      if (parsed === null) {
         throw new Error(`Invalid timeoutMs value: "${options.timeoutMs}". Must be a positive integer.`);
       }
       this.timeoutMs = parsed;
