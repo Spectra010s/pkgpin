@@ -111,19 +111,32 @@ async function main() {
     }
   }
 
-  // Parse concurrency
+  // Parse concurrency flag (-c, --concurrency). Must be a positive integer >= 1.
   let hasConcurrency = false;
   let concurrency;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('--concurrency=')) {
       hasConcurrency = true;
-      concurrency = parseInt(arg.slice(14), 10) || 8;
+      const parsed = parseInt(arg.slice(14), 10);
+      if (Number.isNaN(parsed) || parsed < 1) {
+        console.error(`\x1b[31mError: Invalid concurrency value "${arg.slice(14)}". Must be a positive integer.\x1b[0m`);
+        process.exit(1);
+      }
+      concurrency = parsed;
     } else if (arg === '-c' || arg === '--concurrency') {
       hasConcurrency = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
-        concurrency = parseInt(argv[i + 1], 10) || 8;
+        const parsed = parseInt(argv[i + 1], 10);
+        if (Number.isNaN(parsed) || parsed < 1) {
+          console.error(`\x1b[31mError: Invalid concurrency value "${argv[i + 1]}". Must be a positive integer.\x1b[0m`);
+          process.exit(1);
+        }
+        concurrency = parsed;
         i++;
+      } else {
+        console.error('\x1b[31mError: Option --concurrency requires a positive integer argument.\x1b[0m');
+        process.exit(1);
       }
     }
   }
@@ -163,6 +176,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('\n❌ Fatal error in pkgpin:', err.message || err);
+  console.error(`\n\x1b[31mError: Fatal error in pkgpin:\x1b[0m ${err.message || err}`);
   process.exit(1);
 });

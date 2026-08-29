@@ -64,8 +64,32 @@ export class PkgpinRunner {
     this.isDryRun = options.dryRun !== undefined ? Boolean(options.dryRun) : Boolean(fileConfig.dryRun);
     this.prefix = options.prefix !== undefined ? options.prefix : (fileConfig.prefix ?? ''); // default: exact pinned (no ^ or ~)
     this.preservePrefix = options.preservePrefix !== undefined ? Boolean(options.preservePrefix) : Boolean(fileConfig.preservePrefix);
-    this.concurrency = options.concurrency || fileConfig.concurrency || 8;
-    this.timeoutMs = options.timeoutMs || fileConfig.timeoutMs || 6000;
+
+    // Concurrency limit for parallel HTTP requests.
+    // Explicitly validate that provided value is a positive integer (>= 1) rather than relying on
+    // truthy OR fallbacks, preventing 0 or negative numbers from silently reverting to defaults.
+    if (options.concurrency !== undefined) {
+      const parsed = parseInt(options.concurrency, 10);
+      if (Number.isNaN(parsed) || parsed < 1) {
+        throw new Error(`Invalid concurrency value: "${options.concurrency}". Must be a positive integer.`);
+      }
+      this.concurrency = parsed;
+    } else {
+      this.concurrency = fileConfig.concurrency ?? 8;
+    }
+
+    // Registry HTTP request timeout in milliseconds.
+    // Explicitly validate positive integer (>= 1) to ensure intentional timeout settings
+    // are preserved and invalid values (like 0) produce clear feedback.
+    if (options.timeoutMs !== undefined) {
+      const parsed = parseInt(options.timeoutMs, 10);
+      if (Number.isNaN(parsed) || parsed < 1) {
+        throw new Error(`Invalid timeoutMs value: "${options.timeoutMs}". Must be a positive integer.`);
+      }
+      this.timeoutMs = parsed;
+    } else {
+      this.timeoutMs = fileConfig.timeoutMs ?? 6000;
+    }
 
     const excludes = options.exclude !== undefined ? options.exclude : (fileConfig.exclude || []);
     this.customExclusions = new Set(
@@ -359,7 +383,7 @@ export class PkgpinRunner {
       rawContent = fs.readFileSync(filePath, 'utf8');
       pkgData = JSON.parse(rawContent);
     } catch (err) {
-      console.error(`❌ Failed to parse ${relativePath}:`, err.message);
+      console.error(`\x1b[31mError: Failed to parse ${relativePath}:\x1b[0m`, err.message);
       return { filePath, relativePath, updated: 0, error: err.message };
     }
 
