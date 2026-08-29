@@ -31,11 +31,31 @@ const IGNORED_DIRS = new Set([
   '.github'
 ]);
 
+/**
+ * Helper to test wildcard / glob patterns against workspace directories (e.g. "apps/*", "packages/**")
+ */
+function matchWorkspacePattern(pattern, dir) {
+  if (pattern === dir) return true;
+  if (pattern.endsWith('/*')) {
+    const base = pattern.slice(0, -2);
+    if (dir.startsWith(base + '/')) {
+      const remainder = dir.slice(base.length + 1);
+      return remainder.length > 0 && !remainder.includes('/');
+    }
+  }
+  if (pattern.endsWith('/**') || pattern.endsWith('*')) {
+    const base = pattern.replace(/\/\*\*?$/, '');
+    return dir === base || dir.startsWith(base + '/');
+  }
+  return false;
+}
+
 export class PkgpinRunner {
   constructor(options = {}) {
     this.cwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
     this._skipConfig = Boolean(options.skipConfig);
     this._userOptions = options;
+    this._cliOptions = options._cliOptions || {};
 
     const fileConfig = this._skipConfig
       ? {}
@@ -58,18 +78,107 @@ export class PkgpinRunner {
     );
 
     this.defaultPaths = options.paths !== undefined ? options.paths : (fileConfig.paths || []);
+    this.workspaces = options.workspaces || fileConfig.workspaces || {};
     this.versionCache = new Map();
+  }
+
+  /**
+   * Matches workspace override rules for a given file path or package name
+   */
+  resolveWorkspaceConfig(filePath, pkgName) {
+    const dirRel = path.relative(this.cwd, path.dirname(filePath)).replace(/\\/g, '/');
+    const cleanDir = dirRel === '' ? '.' : dirRel;
+
+    let matchedWsConfig = null;
+
+    if (this.workspaces && typeof this.workspaces === 'object') {
+      // 1. Check exact directory match (e.g. "apps/web" or ".")
+      if (this.workspaces[cleanDir]) {
+        matchedWsConfig = this.workspaces[cleanDir];
+      } else if (this.workspaces[dirRel]) {
+        matchedWsConfig = this.workspaces[dirRel];
+      }
+      // 2. Check package name match (e.g. "@repo/web")
+      else if (pkgName && this.workspaces[pkgName]) {
+        matchedWsConfig = this.workspaces[pkgName];
+      }
+      // 3. Check glob/wildcard patterns (e.g. "apps/*", "packages/**")
+      else {
+        for (const [pattern, wsConfig] of Object.entries(this.workspaces)) {
+          if (matchWorkspacePattern(pattern, cleanDir)) {
+            matchedWsConfig = wsConfig;
+            break;
+          }
+        }
+      }
+    }
+
+    // Resolve merged options: CLI Flags > Workspace Overrides > Root Config > Default
+    const cli = this._cliOptions;
+
+    const prefix = cli.prefix !== undefined
+      ? cli.prefix
+      : (matchedWsConfig?.prefix !== undefined ? matchedWsConfig.prefix : this.prefix);
+
+    const preservePrefix = cli.preservePrefix !== undefined
+      ? cli.preservePrefix
+      : (matchedWsConfig?.preservePrefix !== undefined ? matchedWsConfig.preservePrefix : this.preservePrefix);
+
+    const concurrency = cli.concurrency !== undefined
+      ? cli.concurrency
+      : (matchedWsConfig?.concurrency !== undefined ? matchedWsConfig.concurrency : this.concurrency);
+
+    let customExclusions = this.customExclusions;
+    if (cli.exclude !== undefined) {
+      customExclusions = new Set(
+        (Array.isArray(cli.exclude) ? cli.exclude : [cli.exclude])
+          .map((p) => String(p).trim().toLowerCase())
+          .filter(Boolean)
+      );
+    } else if (matchedWsConfig?.exclude !== undefined) {
+      // Combine root exclusions with workspace exclusions
+      const wsExcludes = Array.isArray(matchedWsConfig.exclude) ? matchedWsConfig.exclude : [matchedWsConfig.exclude];
+      customExclusions = new Set([
+        ...this.customExclusions,
+        ...wsExcludes.map((p) => String(p).trim().toLowerCase()).filter(Boolean),
+      ]);
+    }
+
+    let targets = this.targets;
+    if (cli.target !== undefined) {
+      targets = new Set(
+        (Array.isArray(cli.target) ? cli.target : [cli.target])
+          .map((p) => String(p).trim().toLowerCase())
+          .filter(Boolean)
+      );
+    } else if (matchedWsConfig?.target !== undefined) {
+      const wsTargets = Array.isArray(matchedWsConfig.target) ? matchedWsConfig.target : [matchedWsConfig.target];
+      targets = new Set(
+        wsTargets.map((p) => String(p).trim().toLowerCase()).filter(Boolean)
+      );
+    }
+
+    return {
+      prefix,
+      preservePrefix,
+      concurrency,
+      customExclusions,
+      targets,
+    };
   }
 
   /**
    * Check if a package should be excluded from update
    */
-  shouldSkip(pkgName, currentVersion) {
-    if (this.customExclusions.has(pkgName.toLowerCase())) {
+  shouldSkip(pkgName, currentVersion, context = this) {
+    const exclusions = context.customExclusions || this.customExclusions;
+    const targets = context.targets || this.targets;
+
+    if (exclusions.has(pkgName.toLowerCase())) {
       return { skip: true, reason: 'excluded' };
     }
 
-    if (this.targets.size > 0 && !this.targets.has(pkgName.toLowerCase())) {
+    if (targets.size > 0 && !targets.has(pkgName.toLowerCase())) {
       return { skip: true, reason: 'not targeted' };
     }
 
@@ -89,17 +198,20 @@ export class PkgpinRunner {
   /**
    * Format new version according to prefix settings
    */
-  formatVersion(oldVersionSpec, latestVersion) {
+  formatVersion(oldVersionSpec, latestVersion, context = this) {
     if (!latestVersion) return oldVersionSpec;
     if (oldVersionSpec === '*' || oldVersionSpec === 'latest') return oldVersionSpec;
 
-    if (this.preservePrefix) {
+    const preservePrefix = context.preservePrefix !== undefined ? context.preservePrefix : this.preservePrefix;
+    const prefix = context.prefix !== undefined ? context.prefix : this.prefix;
+
+    if (preservePrefix) {
       const match = oldVersionSpec.match(/^([\^~>=<!]*\s*)/);
       const existingPrefix = match ? match[1] : '';
       return `${existingPrefix}${latestVersion}`;
     }
 
-    return `${this.prefix}${latestVersion}`;
+    return `${prefix}${latestVersion}`;
   }
 
   /**
@@ -253,6 +365,8 @@ export class PkgpinRunner {
 
     console.log(`\nChecking \x1b[36m${relativePath}\x1b[0m (${pkgData.name || 'unnamed'})`);
 
+    const fileContext = this.resolveWorkspaceConfig(filePath, pkgData.name);
+
     const depTypes = ['dependencies', 'devDependencies'];
     let totalUpdated = 0;
     const updates = [];
@@ -263,9 +377,9 @@ export class PkgpinRunner {
 
       const depNames = Object.keys(deps);
 
-      await this.mapConcurrent(depNames, this.concurrency, async (depName) => {
+      await this.mapConcurrent(depNames, fileContext.concurrency, async (depName) => {
         const currentVersion = deps[depName];
-        const skipCheck = this.shouldSkip(depName, currentVersion);
+        const skipCheck = this.shouldSkip(depName, currentVersion, fileContext);
 
         if (skipCheck.skip) {
           return;
@@ -276,7 +390,7 @@ export class PkgpinRunner {
           return;
         }
 
-        const newVersionSpec = this.formatVersion(currentVersion, latestVersion);
+        const newVersionSpec = this.formatVersion(currentVersion, latestVersion, fileContext);
 
         if (newVersionSpec !== currentVersion) {
           deps[depName] = newVersionSpec;
@@ -344,6 +458,9 @@ export class PkgpinRunner {
         }
         if (this._userOptions.paths === undefined && asyncConfig.paths !== undefined) {
           this.defaultPaths = asyncConfig.paths;
+        }
+        if (this._userOptions.workspaces === undefined && asyncConfig.workspaces !== undefined) {
+          this.workspaces = asyncConfig.workspaces;
         }
       }
     }

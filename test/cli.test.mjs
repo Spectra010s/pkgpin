@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 
 const CLI_PATH = path.resolve('./bin/cli.mjs');
 
-describe('CLI Integration with Config (Issue #1)', () => {
+describe('CLI Integration with Config & Workspaces', () => {
   let tmpDir;
 
   beforeEach(() => {
@@ -83,5 +83,53 @@ describe('CLI Integration with Config (Issue #1)', () => {
 
     assert.match(output, /Excluded:.*koa/);
     assert.match(output, /Prefix:.*~/);
+  });
+
+  it('should apply workspace overrides in monorepo CLI run', () => {
+    // Root config
+    const rootPkgJson = {
+      name: 'root-monorepo',
+      type: 'module',
+      pkgpin: {
+        prefix: '^',
+        exclude: ['global-dep'],
+        dryRun: true,
+        workspaces: {
+          'apps/web': {
+            prefix: '',
+            exclude: ['web-local-dep'],
+          },
+          'apps/api': {
+            prefix: '~',
+          },
+        },
+      },
+    };
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify(rootPkgJson, null, 2), 'utf8');
+
+    // apps/web
+    fs.mkdirSync(path.join(tmpDir, 'apps/web'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'apps/web/package.json'),
+      JSON.stringify({ name: 'web-pkg', dependencies: { 'web-local-dep': '1.0.0' } }),
+      'utf8'
+    );
+
+    // apps/api
+    fs.mkdirSync(path.join(tmpDir, 'apps/api'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'apps/api/package.json'),
+      JSON.stringify({ name: 'api-pkg', dependencies: { 'api-dep': '1.0.0' } }),
+      'utf8'
+    );
+
+    const output = execFileSync('node', [CLI_PATH], {
+      cwd: tmpDir,
+      encoding: 'utf8',
+    });
+
+    // Both apps checked
+    assert.match(output, /apps\/web\/package\.json/);
+    assert.match(output, /apps\/api\/package\.json/);
   });
 });

@@ -143,15 +143,19 @@ async function main() {
 
   const { config: fileConfig } = await loadConfig(process.cwd());
 
+  const cliFlags = {};
+  if (hasDryRun) cliFlags.dryRun = true;
+  if (hasPreservePrefix) cliFlags.preservePrefix = true;
+  if (hasExclude) cliFlags.exclude = excludeList;
+  if (hasTarget) cliFlags.target = targetList;
+  if (hasPrefix) cliFlags.prefix = prefix;
+  if (hasConcurrency) cliFlags.concurrency = concurrency;
+
   const runnerOptions = {
     _preloadedConfig: fileConfig,
+    _cliOptions: cliFlags,
+    ...cliFlags,
   };
-  if (hasDryRun) runnerOptions.dryRun = true;
-  if (hasPreservePrefix) runnerOptions.preservePrefix = true;
-  if (hasExclude) runnerOptions.exclude = excludeList;
-  if (hasTarget) runnerOptions.target = targetList;
-  if (hasPrefix) runnerOptions.prefix = prefix;
-  if (hasConcurrency) runnerOptions.concurrency = concurrency;
 
   const runner = new PkgpinRunner(runnerOptions);
 
