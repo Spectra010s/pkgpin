@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unpkg.com/pkgpin/schema.json",
+  "title": "JSON Schema for pkgpin configuration",
+  "description": "Configuration schema for pkgpin (package.json dependency pinner and updater)",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON schema URI for configuration validation"
+    },
+    "prefix": {
+      "type": "string",
+      "enum": ["", "^", "~"],
+      "default": "",
+      "description": "Version prefix to apply when updating dependencies. Use \"\" (default) for exact pinned versions, \"^\" for caret, or \"~\" for tilde."
+    },
+    "preservePrefix": {
+      "type": "boolean",
+      "default": false,
+      "description": "Keep whatever prefix (^ or ~) each dependency currently has instead of replacing it with the global prefix setting."
+    },
+    "exclude": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "List of package names to skip from updating (e.g. [\"typescript\", \"eslint\"])."
+    },
+    "target": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "List of specific package names to update. If empty or omitted, all dependencies are targeted."
+    },
+    "concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 8,
+      "description": "Maximum number of parallel HTTP requests to registry when resolving versions."
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 6000,
+      "description": "HTTP request timeout in milliseconds when querying the npm registry."
+    },
+    "dryRun": {
+      "type": "boolean",
+      "default": false,
+      "description": "Preview changes without modifying package.json files on disk."
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Explicit target file or directory paths to process when no positional paths are passed to CLI."
+    },
+    "workspaces": {
+      "type": "object",
+      "description": "Per-workspace configuration overrides in monorepos, mapped by directory path, package name, or glob pattern.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "enum": ["", "^", "~"],
+            "description": "Workspace-specific version prefix override."
+          },
+          "preservePrefix": {
+            "type": "boolean",
+            "description": "Workspace-specific preservePrefix override."
+          },
+          "exclude": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Workspace-specific package exclusion list."
+          },
+          "target": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Workspace-specific targeted packages list."
+          },
+          "concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Workspace-specific concurrency limit override."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
