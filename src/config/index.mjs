@@ -76,6 +76,47 @@ export async function loadConfig(dir = process.cwd()) {
 }
 
 /**
+ * Loads a single, explicitly specified configuration file by path.
+ * Dispatches to the correct loader based on file extension:
+ *   .js / .mjs / .cjs  → loadJsConfig (async dynamic import)
+ *   .json / no ext      → loadJsonConfig (synchronous JSON parse)
+ *
+ * Used by the -C / --config CLI flag so users can point to a non-standard
+ * config file outside the normal discovery search.
+ *
+ * @param {string} filePath - Path to the config file (resolved against cwd)
+ * @returns {Promise<{ config: Record<string, any>, filepath: string }>}
+ */
+export async function loadConfigFile(filePath) {
+  const resolved = path.resolve(filePath);
+
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Configuration file not found: "${resolved}"`);
+  }
+
+  // If a directory was provided, search for standard config files within it
+  if (fs.statSync(resolved).isDirectory()) {
+    const result = await loadConfig(resolved);
+    if (!result.filepath) {
+      throw new Error(`No configuration file found in directory "${resolved}"`);
+    }
+    return result;
+  }
+
+  const ext = path.extname(resolved).toLowerCase();
+  let config;
+
+  if (ext === '.js' || ext === '.mjs' || ext === '.cjs') {
+    config = await loadJsConfig(resolved);
+  } else {
+    // .json, .pkgpinrc (no ext), or any other extension: parse as JSON
+    config = loadJsonConfig(resolved);
+  }
+
+  return { config, filepath: resolved };
+}
+
+/**
  * Synchronous loader for JSON config files and package.json.
  *
  * @param {string} [dir=process.cwd()] - Directory to search in

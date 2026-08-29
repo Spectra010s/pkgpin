@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-import { loadConfig, loadConfigSync, normalizeConfig, parsePositiveInteger } from './config/index.mjs';
+import { loadConfig, loadConfigFile, loadConfigSync, normalizeConfig, parsePositiveInteger } from './config/index.mjs';
 
-export { loadConfig, loadConfigSync, normalizeConfig, parsePositiveInteger };
+export { loadConfig, loadConfigFile, loadConfigSync, normalizeConfig, parsePositiveInteger };
 
 // Protocols / prefixes to ignore
 const IGNORED_VERSION_PREFIXES = [
