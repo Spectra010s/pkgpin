@@ -113,25 +113,38 @@ export class PkgpinRunner {
       }
     }
 
-    // Resolve merged options: CLI Flags > Workspace Overrides > Root Config > Default
+    // Resolve merged options: CLI flags / explicit runner options > Workspace Overrides > Root Config > Default
     const cli = this._cliOptions;
+    const user = this._userOptions;
 
     const prefix = cli.prefix !== undefined
       ? cli.prefix
-      : (matchedWsConfig?.prefix !== undefined ? matchedWsConfig.prefix : this.prefix);
+      : (user.prefix !== undefined
+        ? user.prefix
+        : (matchedWsConfig?.prefix !== undefined ? matchedWsConfig.prefix : this.prefix));
 
     const preservePrefix = cli.preservePrefix !== undefined
       ? cli.preservePrefix
-      : (matchedWsConfig?.preservePrefix !== undefined ? matchedWsConfig.preservePrefix : this.preservePrefix);
+      : (user.preservePrefix !== undefined
+        ? Boolean(user.preservePrefix)
+        : (matchedWsConfig?.preservePrefix !== undefined ? matchedWsConfig.preservePrefix : this.preservePrefix));
 
     const concurrency = cli.concurrency !== undefined
       ? cli.concurrency
-      : (matchedWsConfig?.concurrency !== undefined ? matchedWsConfig.concurrency : this.concurrency);
+      : (user.concurrency !== undefined
+        ? user.concurrency
+        : (matchedWsConfig?.concurrency !== undefined ? matchedWsConfig.concurrency : this.concurrency));
 
     let customExclusions = this.customExclusions;
     if (cli.exclude !== undefined) {
       customExclusions = new Set(
         (Array.isArray(cli.exclude) ? cli.exclude : [cli.exclude])
+          .map((p) => String(p).trim().toLowerCase())
+          .filter(Boolean)
+      );
+    } else if (user.exclude !== undefined) {
+      customExclusions = new Set(
+        (Array.isArray(user.exclude) ? user.exclude : [user.exclude])
           .map((p) => String(p).trim().toLowerCase())
           .filter(Boolean)
       );
@@ -148,6 +161,12 @@ export class PkgpinRunner {
     if (cli.target !== undefined) {
       targets = new Set(
         (Array.isArray(cli.target) ? cli.target : [cli.target])
+          .map((p) => String(p).trim().toLowerCase())
+          .filter(Boolean)
+      );
+    } else if (user.target !== undefined) {
+      targets = new Set(
+        (Array.isArray(user.target) ? user.target : [user.target])
           .map((p) => String(p).trim().toLowerCase())
           .filter(Boolean)
       );

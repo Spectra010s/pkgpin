@@ -339,16 +339,18 @@ describe('Monorepo Workspace Overrides', () => {
   it('should resolve workspace config by directory path', () => {
     const runner = new PkgpinRunner({
       cwd: tmpDir,
-      prefix: '^',
-      exclude: ['typescript'],
-      workspaces: {
-        'apps/web': {
-          prefix: '',
-          target: ['react'],
-        },
-        'apps/api': {
-          prefix: '~',
-          exclude: ['fastify'],
+      _preloadedConfig: {
+        prefix: '^',
+        exclude: ['typescript'],
+        workspaces: {
+          'apps/web': {
+            prefix: '',
+            target: ['react'],
+          },
+          'apps/api': {
+            prefix: '~',
+            exclude: ['fastify'],
+          },
         },
       },
     });
@@ -372,11 +374,13 @@ describe('Monorepo Workspace Overrides', () => {
   it('should resolve workspace config by package name', () => {
     const runner = new PkgpinRunner({
       cwd: tmpDir,
-      prefix: '^',
-      workspaces: {
-        '@myrepo/shared-ui': {
-          prefix: '~',
-          preservePrefix: true,
+      _preloadedConfig: {
+        prefix: '^',
+        workspaces: {
+          '@myrepo/shared-ui': {
+            prefix: '~',
+            preservePrefix: true,
+          },
         },
       },
     });
@@ -392,13 +396,15 @@ describe('Monorepo Workspace Overrides', () => {
   it('should resolve workspace config by wildcard pattern (e.g. apps/*)', () => {
     const runner = new PkgpinRunner({
       cwd: tmpDir,
-      prefix: '',
-      workspaces: {
-        'apps/*': {
-          prefix: '^',
-        },
-        'packages/**': {
-          prefix: '~',
+      _preloadedConfig: {
+        prefix: '',
+        workspaces: {
+          'apps/*': {
+            prefix: '^',
+          },
+          'packages/**': {
+            prefix: '~',
+          },
         },
       },
     });
@@ -414,6 +420,44 @@ describe('Monorepo Workspace Overrides', () => {
       'common-utils'
     );
     assert.equal(pkgConfig.prefix, '~');
+  });
+
+  it('should allow explicit constructor options to override file workspace configuration', () => {
+    const runner = new PkgpinRunner({
+      cwd: tmpDir,
+      _preloadedConfig: {
+        prefix: '^',
+        exclude: ['root-exclude'],
+        target: ['root-target'],
+        concurrency: 4,
+        preservePrefix: false,
+        workspaces: {
+          'apps/web': {
+            prefix: '~',
+            exclude: ['workspace-exclude'],
+            target: ['workspace-target'],
+            concurrency: 2,
+            preservePrefix: true,
+          },
+        },
+      },
+      prefix: '',
+      exclude: ['constructor-exclude'],
+      target: ['constructor-target'],
+      concurrency: 12,
+      preservePrefix: false,
+    });
+
+    const wsConfig = runner.resolveWorkspaceConfig(
+      path.join(tmpDir, 'apps/web/package.json'),
+      'web'
+    );
+
+    assert.equal(wsConfig.prefix, '');
+    assert.equal(wsConfig.preservePrefix, false);
+    assert.equal(wsConfig.concurrency, 12);
+    assert.deepEqual([...wsConfig.customExclusions], ['constructor-exclude']);
+    assert.deepEqual([...wsConfig.targets], ['constructor-target']);
   });
 
   it('should allow CLI options to override workspace configuration', () => {
