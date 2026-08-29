@@ -5,7 +5,7 @@
  * Version: 0.2.0
  */
 
-import { PkgpinRunner, loadConfig } from '../src/index.mjs';
+import { PkgpinRunner, loadConfig, parsePositiveInteger } from '../src/index.mjs';
 
 function printHelp() {
   console.log(`
@@ -111,19 +111,34 @@ async function main() {
     }
   }
 
-  // Parse concurrency
+  // Parse concurrency flag (-c, --concurrency). Must be a positive integer >= 1.
   let hasConcurrency = false;
   let concurrency;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith('--concurrency=')) {
       hasConcurrency = true;
-      concurrency = parseInt(arg.slice(14), 10) || 8;
+      const rawVal = arg.slice(14);
+      const parsed = parsePositiveInteger(rawVal);
+      if (parsed === null) {
+        console.error(`\x1b[31mError: Invalid concurrency value "${rawVal}". Must be a positive integer.\x1b[0m`);
+        process.exit(1);
+      }
+      concurrency = parsed;
     } else if (arg === '-c' || arg === '--concurrency') {
       hasConcurrency = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('-')) {
-        concurrency = parseInt(argv[i + 1], 10) || 8;
+        const rawVal = argv[i + 1];
+        const parsed = parsePositiveInteger(rawVal);
+        if (parsed === null) {
+          console.error(`\x1b[31mError: Invalid concurrency value "${rawVal}". Must be a positive integer.\x1b[0m`);
+          process.exit(1);
+        }
+        concurrency = parsed;
         i++;
+      } else {
+        console.error('\x1b[31mError: Option --concurrency requires a positive integer argument.\x1b[0m');
+        process.exit(1);
       }
     }
   }
@@ -163,6 +178,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('\n❌ Fatal error in pkgpin:', err.message || err);
+  console.error(`\n\x1b[31mError: Fatal error in pkgpin:\x1b[0m ${err.message || err}`);
   process.exit(1);
 });

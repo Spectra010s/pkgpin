@@ -1,4 +1,24 @@
 /**
+ * Parses and strictly validates that an input is a positive integer (>= 1).
+ * Rejects floats ("1.5"), strings with trailing characters ("8abc", "100ms"), negative numbers, and 0.
+ *
+ * @param {unknown} val - Raw input to validate
+ * @returns {number|null} Validated positive integer or null if invalid
+ */
+export function parsePositiveInteger(val) {
+  if (typeof val === 'number') {
+    return Number.isInteger(val) && val >= 1 ? val : null;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^[1-9]\d*$/.test(trimmed)) {
+      return parseInt(trimmed, 10);
+    }
+  }
+  return null;
+}
+
+/**
  * Normalizes input list that can be passed as an array or a comma/space-separated string.
  * Examples:
  *   - ['react', 'react-dom'] -> ['react', 'react-dom']
@@ -28,9 +48,9 @@ export function normalizeList(val) {
  * - `exclude` (string[]|string): Packages to skip during updates
  * - `target` (string[]|string): Packages to exclusively update
  * - `paths` (string[]|string): Default workspace paths/patterns to target
- * - `concurrency` (number): Max parallel HTTP requests
+ * - `concurrency` (number): Max parallel HTTP requests (must be >= 1)
  * - `dryRun` (boolean): Preview updates without writing to disk
- * - `timeoutMs` (number): Registry lookup request timeout in milliseconds
+ * - `timeoutMs` (number): Registry lookup request timeout in milliseconds (must be >= 1)
  * - `workspaces` (Record<string, object>): Per-workspace override configurations
  *
  * @param {Record<string, any>} [rawConfig={}] - Raw parsed configuration object
@@ -65,12 +85,14 @@ export function normalizeConfig(rawConfig = {}) {
     config.paths = normalizeList(rawConfig.paths);
   }
 
-  // Concurrency limit for registry requests
+  // Concurrency limit for registry requests.
+  // Validate entire integer string/number to reject floats (1.5) or strings with trailing characters (8abc).
   if (rawConfig.concurrency !== undefined) {
-    const parsed = parseInt(rawConfig.concurrency, 10);
-    if (!Number.isNaN(parsed) && parsed > 0) {
-      config.concurrency = parsed;
+    const parsed = parsePositiveInteger(rawConfig.concurrency);
+    if (parsed === null) {
+      throw new Error(`Invalid concurrency value: "${rawConfig.concurrency}". Must be a positive integer.`);
     }
+    config.concurrency = parsed;
   }
 
   // Dry run mode
@@ -78,12 +100,14 @@ export function normalizeConfig(rawConfig = {}) {
     config.dryRun = Boolean(rawConfig.dryRun);
   }
 
-  // Registry HTTP timeout in milliseconds
+  // Registry HTTP timeout in milliseconds.
+  // Validate entire integer string/number to reject floats or strings with trailing characters.
   if (rawConfig.timeoutMs !== undefined) {
-    const parsed = parseInt(rawConfig.timeoutMs, 10);
-    if (!Number.isNaN(parsed) && parsed > 0) {
-      config.timeoutMs = parsed;
+    const parsed = parsePositiveInteger(rawConfig.timeoutMs);
+    if (parsed === null) {
+      throw new Error(`Invalid timeoutMs value: "${rawConfig.timeoutMs}". Must be a positive integer.`);
     }
+    config.timeoutMs = parsed;
   }
 
   // Recursively sanitize per-workspace configuration overrides (keyed by directory path, glob pattern, or package name)

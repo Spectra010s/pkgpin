@@ -7,7 +7,7 @@ import {
   loadPackageJsonConfig,
   getModuleMismatchError,
 } from './loaders.mjs';
-import { normalizeConfig, normalizeList } from './normalize.mjs';
+import { normalizeConfig, normalizeList, parsePositiveInteger } from './normalize.mjs';
 
 export {
   JS_CONFIG_FILES,
@@ -18,6 +18,7 @@ export {
   getModuleMismatchError,
   normalizeConfig,
   normalizeList,
+  parsePositiveInteger,
 };
 
 /**
