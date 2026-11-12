@@ -18,7 +18,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "commit": "git-aic"
   },
   "keywords": [
     "dependencies",
@@ -39,6 +40,9 @@
     "url": "https://spectra010s.biuld.app"
   },
   "license": "MIT",
+  "devDependencies": {
+    "git-aic": "^1.4.2"
+  },
   "engines": {
     "node": ">=18.0.0"
   }
